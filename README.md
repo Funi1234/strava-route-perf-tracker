@@ -17,41 +17,42 @@ with Authorization Callback Domain `localhost`. Copy your **Client ID** and
 > data. If you don't have one, the app will prompt you to upload your Strava
 > data archive instead (see [Using your data archive](#using-your-data-archive)).
 
-### 2. Configure credentials
+---
+
+## Running with Docker
 
 ```bash
 cp .env.example .env
 # fill in STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET
-```
-
----
-
-## Running with Docker (recommended)
-
-```bash
 docker compose up --build
 ```
 
-Open `http://localhost:3000`. That's it — the backend and frontend start
-together. Strava OAuth tokens are persisted in a named Docker volume so you
-stay logged in across restarts.
+Open `http://localhost:3000`. The backend and frontend start together.
+Strava OAuth tokens are persisted in a named Docker volume so you stay
+logged in across restarts.
 
 ---
 
 ## Running locally
 
-### Backend
+### 2. Configure credentials
+
+```bash
+cp backend/.env.example backend/.env
+# fill in STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET
+```
+
+### 3. Run the backend
 
 ```bash
 cd backend
-cp ../.env.example .env   # or create backend/.env with the same vars
-go mod tidy               # first time only
+go mod tidy   # first time only
 go run .
 ```
 
 Listens on `http://localhost:8080`.
 
-### Frontend
+### 4. Run the frontend
 
 ```bash
 cd frontend
@@ -63,7 +64,7 @@ Open `http://localhost:3000`.
 
 ---
 
-### 3. Connect your Strava account
+### 5. Connect your Strava account
 
 Click **Connect with Strava** and log in. You'll be redirected back once
 authorized. If your account has API access the app syncs your full activity
