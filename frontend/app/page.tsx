@@ -28,6 +28,18 @@ export default function Home() {
         setStatus("loggedOut");
         return;
       }
+      // If the backend already has routes from a previous sync/upload this
+      // session, show them immediately without re-syncing.
+      try {
+        const existing = await listRoutes();
+        if (existing.length > 0) {
+          setRoutes(existing);
+          setStatus("ready");
+          return;
+        }
+      } catch {
+        // 428 = no data yet; fall through to sync
+      }
       setStatus("syncing");
       await syncActivities();
       setRoutes(await listRoutes());
