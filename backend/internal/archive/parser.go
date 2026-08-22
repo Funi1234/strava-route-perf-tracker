@@ -48,6 +48,12 @@ const csvDateLayout = "Jan 2, 2006, 3:04:05 PM"
 
 // ParseZip reads a Strava export zip and returns one Activity per entry in
 // activities.csv that has an associated GPS file (GPX or FIT).
+//
+// Strava archives contain two activity file formats: GPX (older activities
+// recorded via phone) and FIT (newer activities, including Apple Watch).
+// Metadata (distance, time, HR, speed) comes from activities.csv rather than
+// being recomputed from track points — Strava's pre-computed values are more
+// accurate and avoid re-deriving moving time, which requires pause detection.
 func ParseZip(data []byte) ([]Activity, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {

@@ -29,7 +29,7 @@ type RunActivity struct {
 	HasHeartrate       bool
 	AverageHeartrate   float64
 	StartLat, StartLng float64
-	MidLat, MidLng     float64 // midpoint of GPS track; zero if unavailable
+	MidLat, MidLng     float64 // midpoint of GPS track; zero if unavailable (see Cluster for why this matters)
 	EndLat, EndLng     float64
 }
 
@@ -103,9 +103,10 @@ func Cluster(activities []RunActivity) []Route {
 			if startDist > startEndThresholdMeters || endDist > startEndThresholdMeters || distDiff > distanceTolerancePct {
 				continue
 			}
-			// If both this activity and the cluster have a midpoint, check it
-			// too. This prevents activities that start/end at the same place
-			// (e.g. home) but follow completely different paths from merging.
+			// If both sides have a midpoint, require it to match too.
+			// Without this, any two loops that start and end at the same
+			// location (e.g. leaving from home) would merge regardless of
+			// which direction they actually travel.
 			if hasMid && cl.hasMid {
 				midDist := haversineMeters(act.MidLat, act.MidLng, cl.midCentroid[0], cl.midCentroid[1])
 				if midDist > startEndThresholdMeters {
