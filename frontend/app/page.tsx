@@ -84,38 +84,52 @@ export default function Home() {
       )}
 
       {status === "upload" && (
-        <div className="space-y-4">
-          <p className="text-sm text-neutral-700 dark:text-neutral-300">
-            Strava&apos;s API now requires a paid subscription. You can upload your Strava data
-            archive instead.
-          </p>
-          <ol className="text-sm text-neutral-500 list-decimal list-inside space-y-1">
-            <li>Go to Strava → Settings → My Account</li>
-            <li>Choose &ldquo;Download or Delete Your Account&rdquo;</li>
-            <li>Request your archive and wait for the email</li>
-            <li>Upload the zip file below</li>
-          </ol>
-          <div className="flex items-center gap-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".zip"
-              className="hidden"
-              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-            />
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-sm font-medium">Sync with Strava</h2>
+            <p className="text-sm text-neutral-500">
+              Strava&apos;s API requires a paid subscription. If you have one, try syncing directly.
+            </p>
             <button
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-lg border border-neutral-300 dark:border-neutral-600 px-4 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              onClick={load}
+              className="inline-block rounded-lg bg-orange-500 text-white px-4 py-2 text-sm font-medium hover:bg-orange-600 transition-colors"
             >
-              {uploadFile ? uploadFile.name : "Choose archive zip"}
+              Try Sync with Strava
             </button>
-            <button
-              onClick={handleUpload}
-              disabled={!uploadFile}
-              className="rounded-lg bg-orange-500 text-white px-4 py-2 text-sm font-medium hover:bg-orange-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Upload
-            </button>
+          </div>
+
+          <div className="border-t border-neutral-200 dark:border-neutral-700 pt-6 space-y-3">
+            <h2 className="text-sm font-medium">Upload your Strava archive</h2>
+            <p className="text-sm text-neutral-500">
+              No subscription? Download your data from Strava and upload it here.
+            </p>
+            <ol className="text-sm text-neutral-500 list-decimal list-inside space-y-1">
+              <li>Strava → Settings → My Account</li>
+              <li>Download or Delete Your Account → Request Your Archive</li>
+              <li>Upload the zip file you receive by email</li>
+            </ol>
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".zip"
+                className="hidden"
+                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-lg border border-neutral-300 dark:border-neutral-600 px-4 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              >
+                {uploadFile ? uploadFile.name : "Choose archive zip"}
+              </button>
+              <button
+                onClick={handleUpload}
+                disabled={!uploadFile}
+                className="rounded-lg bg-orange-500 text-white px-4 py-2 text-sm font-medium hover:bg-orange-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Upload
+              </button>
+            </div>
           </div>
         </div>
       )}
