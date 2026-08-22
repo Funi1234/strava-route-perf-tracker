@@ -9,24 +9,49 @@ heart rate trend per route. Each activity links back to its page on Strava.
 
 ### 1. Strava API app
 
-Already done for this project — credentials are in `backend/.env`
-(gitignored). If you need to recreate it: register an app at
-[strava.com/settings/api](https://www.strava.com/settings/api) with
-Authorization Callback Domain `localhost`, then fill in
-`backend/.env` (see `backend/.env.example`) with `STRAVA_CLIENT_ID` /
-`STRAVA_CLIENT_SECRET`.
+Register an app at [strava.com/settings/api](https://www.strava.com/settings/api)
+with Authorization Callback Domain `localhost`. Copy your **Client ID** and
+**Client Secret** — you'll need them in the next step.
 
-### 2. Run the backend
+> **Note:** Strava's API now requires a paid subscription to fetch activity
+> data. If you don't have one, the app will prompt you to upload your Strava
+> data archive instead (see [Using your data archive](#using-your-data-archive)).
+
+### 2. Configure credentials
+
+```bash
+cp .env.example .env
+# fill in STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET
+```
+
+---
+
+## Running with Docker (recommended)
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:3000`. That's it — the backend and frontend start
+together. Strava OAuth tokens are persisted in a named Docker volume so you
+stay logged in across restarts.
+
+---
+
+## Running locally
+
+### Backend
 
 ```bash
 cd backend
-go mod tidy   # first time only
+cp ../.env.example .env   # or create backend/.env with the same vars
+go mod tidy               # first time only
 go run .
 ```
 
 Listens on `http://localhost:8080`.
 
-### 3. Run the frontend
+### Frontend
 
 ```bash
 cd frontend
@@ -36,13 +61,27 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-### 4. Connect your Strava account
+---
 
-Click "Connect with Strava" and log in — this step is yours to do since it
-needs your real Strava credentials. You'll be redirected back once
-authorized, and the app will sync your entire activity history. For a long
-history this can take a little while (many pages of activities to fetch,
-plus rate-limited reverse-geocoding — see below).
+### 3. Connect your Strava account
+
+Click **Connect with Strava** and log in. You'll be redirected back once
+authorized. If your account has API access the app syncs your full activity
+history automatically. For a long history this can take a little while (many
+pages of activities to fetch, plus rate-limited reverse-geocoding — see below).
+
+## Using your data archive
+
+If Strava's API is inactive on your account, the app will offer a second
+option: upload your full data archive.
+
+1. Strava → Settings → My Account → **Download or Delete Your Account**
+2. Request your archive and wait for the email
+3. Upload the `.zip` file in the app
+
+The archive contains your complete activity history including GPX tracks
+(older activities recorded via phone) and FIT files (newer activities,
+including Apple Watch). Both formats are supported.
 
 ## How "route" grouping works
 
@@ -67,6 +106,9 @@ cached and rate-limited to one request/second per Nominatim's usage policy.
 
 - `backend/` — Go API server: Strava OAuth, activity fetching, route
   clustering, reverse-geocoded naming, JSON endpoints (`internal/auth`,
-  `internal/strava`, `internal/routes`, `internal/geocode`).
+  `internal/strava`, `internal/routes`, `internal/geocode`,
+  `internal/archive`).
 - `frontend/` — Next.js App Router UI: route list (`app/page.tsx`) and
   per-route activity list + trend chart (`app/routes/[id]/page.tsx`).
+- `docker-compose.yml` — runs backend + frontend together with a named
+  volume for token persistence.
