@@ -48,8 +48,7 @@ export default function PerformanceChart({ activities }: { activities: RouteActi
             orientation="right"
             tick={{ fontSize: 12 }}
             width={40}
-            reversed
-            domain={[120, "dataMax"]}
+            domain={["dataMin - 10", "dataMax + 10"]}
           />
           <Tooltip
             formatter={(value, name) =>
@@ -87,7 +86,7 @@ export default function PerformanceChart({ activities }: { activities: RouteActi
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Heart rate
         </span>
-        <span className="text-neutral-400">(both axes reversed — up the chart means better)</span>
+        <span className="text-neutral-400">(pace axis reversed — lower pace = faster)</span>
       </div>
     </div>
   );
