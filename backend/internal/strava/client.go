@@ -2,13 +2,19 @@ package strava
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
+
+// ErrAPIInactive is returned when Strava rejects the request because the
+// app's API access is inactive (requires a paid subscriber account).
+var ErrAPIInactive = errors.New("strava API access inactive — a Strava subscription is required")
 
 const (
 	authorizeURL = "https://www.strava.com/oauth/authorize"
@@ -108,6 +114,9 @@ func (c *Client) ListAllActivities(accessToken string) ([]Activity, error) {
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
+			if resp.StatusCode == http.StatusForbidden && strings.Contains(string(body), "Inactive") {
+				return nil, ErrAPIInactive
+			}
 			return nil, fmt.Errorf("strava activities request failed: %s: %s", resp.Status, string(body))
 		}
 

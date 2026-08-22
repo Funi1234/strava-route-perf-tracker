@@ -1,5 +1,6 @@
 # backend
 backend/.env
+.env
 backend/data/
 backend/strava-routes-backend
 

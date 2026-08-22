@@ -33,6 +33,7 @@ func main() {
 	mux.HandleFunc("GET /auth/callback", authHandler.Callback)
 	mux.HandleFunc("GET /api/session", authHandler.Session)
 	mux.HandleFunc("POST /api/sync", routesHandler.Sync)
+	mux.HandleFunc("POST /api/upload", routesHandler.Upload)
 	mux.HandleFunc("GET /api/routes", routesHandler.ListRoutes)
 	mux.HandleFunc("GET /api/routes/{id}/activities", routesHandler.ListRouteActivities)
 

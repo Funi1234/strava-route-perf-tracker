@@ -2,7 +2,9 @@ package routes
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -11,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"strava-routes/backend/internal/archive"
 	"strava-routes/backend/internal/strava"
 )
 
@@ -64,6 +67,12 @@ func (h *Handler) Sync(w http.ResponseWriter, r *http.Request) {
 	stravaActivities, err := h.StravaClient.ListAllActivities(accessToken)
 	if err != nil {
 		log.Printf("failed to fetch strava activities: %v", err)
+		if errors.Is(err, strava.ErrAPIInactive) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusPaymentRequired)
+			_ = json.NewEncoder(w).Encode(map[string]string{"code": "api_inactive"})
+			return
+		}
 		http.Error(w, "failed to fetch activities from strava", http.StatusBadGateway)
 		return
 	}
@@ -171,6 +180,72 @@ func (h *Handler) ListRouteActivities(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
+}
+
+func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
+	const maxSize = 500 << 20 // 500 MB
+	r.Body = http.MaxBytesReader(w, r.Body, maxSize)
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, "failed to parse upload", http.StatusBadRequest)
+		return
+	}
+
+	f, _, err := r.FormFile("archive")
+	if err != nil {
+		http.Error(w, "missing archive file", http.StatusBadRequest)
+		return
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		http.Error(w, "failed to read upload", http.StatusBadRequest)
+		return
+	}
+
+	archiveActivities, err := archive.ParseZip(data)
+	if err != nil {
+		log.Printf("failed to parse archive: %v", err)
+		http.Error(w, "failed to parse archive zip", http.StatusBadRequest)
+		return
+	}
+
+	clustered := NameRoutes(Cluster(FromArchiveActivities(archiveActivities)), h.Geocoder)
+
+	h.mu.Lock()
+	h.routes = clustered
+	h.synced = true
+	h.mu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]int{"routeCount": len(clustered)})
+}
+
+// FromArchiveActivities converts parsed archive activities into RunActivity,
+// dropping any without GPS coordinates.
+func FromArchiveActivities(activities []archive.Activity) []RunActivity {
+	var out []RunActivity
+	for _, a := range activities {
+		if a.StartLat == 0 && a.StartLng == 0 {
+			continue
+		}
+		out = append(out, RunActivity{
+			ID:               a.ID,
+			Name:             a.Name,
+			StartDate:        a.StartDate,
+			DistanceMeters:   a.DistanceMeters,
+			MovingTimeSec:    a.MovingTimeSec,
+			AverageSpeed:     a.AverageSpeed,
+			HasHeartrate:     a.HasHeartrate,
+			AverageHeartrate: a.AverageHeartrate,
+			StartLat:         a.StartLat,
+			StartLng:         a.StartLng,
+			EndLat:           a.EndLat,
+			EndLng:           a.EndLng,
+		})
+	}
+	return out
 }
 
 func round2(f float64) float64 { return math.Round(f*100) / 100 }

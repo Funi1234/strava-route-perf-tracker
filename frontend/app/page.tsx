@@ -1,15 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import RouteList from "@/components/RouteList";
-import { getSession, listRoutes, loginUrl, syncActivities, type RouteSummary } from "@/lib/api";
+import {
+  APIInactiveError,
+  getSession,
+  listRoutes,
+  loginUrl,
+  syncActivities,
+  uploadArchive,
+  type RouteSummary,
+} from "@/lib/api";
 
-type Status = "checking" | "loggedOut" | "syncing" | "ready" | "error";
+type Status = "checking" | "loggedOut" | "syncing" | "ready" | "error" | "upload" | "uploading";
 
 export default function Home() {
   const [status, setStatus] = useState<Status>("checking");
   const [routes, setRoutes] = useState<RouteSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     try {
@@ -20,6 +30,23 @@ export default function Home() {
       }
       setStatus("syncing");
       await syncActivities();
+      setRoutes(await listRoutes());
+      setStatus("ready");
+    } catch (e) {
+      if (e instanceof APIInactiveError) {
+        setStatus("upload");
+        return;
+      }
+      setError(e instanceof Error ? e.message : String(e));
+      setStatus("error");
+    }
+  }
+
+  async function handleUpload() {
+    if (!uploadFile) return;
+    setStatus("uploading");
+    try {
+      await uploadArchive(uploadFile);
       setRoutes(await listRoutes());
       setStatus("ready");
     } catch (e) {
@@ -53,6 +80,49 @@ export default function Home() {
         <p className="text-sm text-neutral-500">
           Syncing your full history with Strava — this can take a bit longer for a long activity
           history…
+        </p>
+      )}
+
+      {status === "upload" && (
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-700 dark:text-neutral-300">
+            Strava&apos;s API now requires a paid subscription. You can upload your Strava data
+            archive instead.
+          </p>
+          <ol className="text-sm text-neutral-500 list-decimal list-inside space-y-1">
+            <li>Go to Strava → Settings → My Account</li>
+            <li>Choose &ldquo;Download or Delete Your Account&rdquo;</li>
+            <li>Request your archive and wait for the email</li>
+            <li>Upload the zip file below</li>
+          </ol>
+          <div className="flex items-center gap-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".zip"
+              className="hidden"
+              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-lg border border-neutral-300 dark:border-neutral-600 px-4 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+            >
+              {uploadFile ? uploadFile.name : "Choose archive zip"}
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={!uploadFile}
+              className="rounded-lg bg-orange-500 text-white px-4 py-2 text-sm font-medium hover:bg-orange-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Upload
+            </button>
+          </div>
+        </div>
+      )}
+
+      {status === "uploading" && (
+        <p className="text-sm text-neutral-500">
+          Processing your archive — parsing GPX files and grouping routes…
         </p>
       )}
 

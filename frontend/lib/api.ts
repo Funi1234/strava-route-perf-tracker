@@ -1,5 +1,12 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
+export class APIInactiveError extends Error {
+  constructor() {
+    super("Strava API access requires a paid subscription");
+    this.name = "APIInactiveError";
+  }
+}
+
 export type RouteSummary = {
   id: number;
   name: string;
@@ -31,8 +38,19 @@ export function getSession() {
   return apiFetch<{ authenticated: boolean }>("/api/session");
 }
 
-export function syncActivities() {
-  return apiFetch<{ routeCount: number }>("/api/sync", { method: "POST" });
+export async function syncActivities(): Promise<{ routeCount: number }> {
+  const res = await fetch(`${API_BASE}/api/sync`, { method: "POST" });
+  if (res.status === 402) throw new APIInactiveError();
+  if (!res.ok) throw new Error(`POST /api/sync failed: ${res.status}`);
+  return res.json() as Promise<{ routeCount: number }>;
+}
+
+export async function uploadArchive(file: File): Promise<{ routeCount: number }> {
+  const form = new FormData();
+  form.append("archive", file);
+  const res = await fetch(`${API_BASE}/api/upload`, { method: "POST", body: form });
+  if (!res.ok) throw new Error(`POST /api/upload failed: ${res.status}`);
+  return res.json() as Promise<{ routeCount: number }>;
 }
 
 export function listRoutes() {
