@@ -29,6 +29,7 @@ type RunActivity struct {
 	HasHeartrate       bool
 	AverageHeartrate   float64
 	StartLat, StartLng float64
+	MidLat, MidLng     float64 // midpoint of GPS track; zero if unavailable
 	EndLat, EndLng     float64
 }
 
@@ -38,8 +39,10 @@ type Route struct {
 	Activities []RunActivity
 
 	startCentroid [2]float64
+	midCentroid   [2]float64
 	endCentroid   [2]float64
 	avgDistance   float64
+	hasMid        bool // true once a midpoint has been recorded
 }
 
 // FromStravaActivities converts raw Strava activities into RunActivity,
@@ -90,22 +93,36 @@ func Cluster(activities []RunActivity) []Route {
 	nextID := 1
 
 	for _, act := range sorted {
+		hasMid := act.MidLat != 0 || act.MidLng != 0
+
 		var match *Route
 		for _, cl := range clusters {
 			startDist := haversineMeters(act.StartLat, act.StartLng, cl.startCentroid[0], cl.startCentroid[1])
 			endDist := haversineMeters(act.EndLat, act.EndLng, cl.endCentroid[0], cl.endCentroid[1])
 			distDiff := math.Abs(act.DistanceMeters-cl.avgDistance) / cl.avgDistance
-			if startDist <= startEndThresholdMeters && endDist <= startEndThresholdMeters && distDiff <= distanceTolerancePct {
-				match = cl
-				break
+			if startDist > startEndThresholdMeters || endDist > startEndThresholdMeters || distDiff > distanceTolerancePct {
+				continue
 			}
+			// If both this activity and the cluster have a midpoint, check it
+			// too. This prevents activities that start/end at the same place
+			// (e.g. home) but follow completely different paths from merging.
+			if hasMid && cl.hasMid {
+				midDist := haversineMeters(act.MidLat, act.MidLng, cl.midCentroid[0], cl.midCentroid[1])
+				if midDist > startEndThresholdMeters {
+					continue
+				}
+			}
+			match = cl
+			break
 		}
 		if match == nil {
 			match = &Route{
 				ID:            nextID,
 				startCentroid: [2]float64{act.StartLat, act.StartLng},
+				midCentroid:   [2]float64{act.MidLat, act.MidLng},
 				endCentroid:   [2]float64{act.EndLat, act.EndLng},
 				avgDistance:   act.DistanceMeters,
+				hasMid:        hasMid,
 			}
 			nextID++
 			clusters = append(clusters, match)
@@ -118,6 +135,15 @@ func Cluster(activities []RunActivity) []Route {
 		match.endCentroid[0] += (act.EndLat - match.endCentroid[0]) / n
 		match.endCentroid[1] += (act.EndLng - match.endCentroid[1]) / n
 		match.avgDistance += (act.DistanceMeters - match.avgDistance) / n
+		if hasMid {
+			if !match.hasMid {
+				match.midCentroid = [2]float64{act.MidLat, act.MidLng}
+				match.hasMid = true
+			} else {
+				match.midCentroid[0] += (act.MidLat - match.midCentroid[0]) / n
+				match.midCentroid[1] += (act.MidLng - match.midCentroid[1]) / n
+			}
+		}
 	}
 
 	sort.Slice(clusters, func(i, j int) bool { return len(clusters[i].Activities) > len(clusters[j].Activities) })

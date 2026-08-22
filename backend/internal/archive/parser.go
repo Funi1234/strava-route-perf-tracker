@@ -27,6 +27,7 @@ type Activity struct {
 	HasHeartrate     bool
 	AverageHeartrate float64
 	StartLat, StartLng float64
+	MidLat, MidLng     float64
 	EndLat, EndLng     float64
 }
 
@@ -81,7 +82,7 @@ func ParseZip(data []byte) ([]Activity, error) {
 		if !ok {
 			continue
 		}
-		sLat, sLng, eLat, eLng, err := extractCoords(f)
+		sLat, sLng, mLat, mLng, eLat, eLng, err := extractCoords(f)
 		if err != nil || (sLat == 0 && sLng == 0) {
 			continue
 		}
@@ -96,6 +97,8 @@ func ParseZip(data []byte) ([]Activity, error) {
 			AverageHeartrate: m.avgHR,
 			StartLat:         sLat,
 			StartLng:         sLng,
+			MidLat:           mLat,
+			MidLng:           mLng,
 			EndLat:           eLat,
 			EndLng:           eLng,
 		})
@@ -150,7 +153,7 @@ func parseCSV(r io.Reader) ([]csvMeta, error) {
 	return out, nil
 }
 
-func extractCoords(f *zip.File) (sLat, sLng, eLat, eLng float64, err error) {
+func extractCoords(f *zip.File) (sLat, sLng, mLat, mLng, eLat, eLng float64, err error) {
 	rc, err := f.Open()
 	if err != nil {
 		return
@@ -173,9 +176,9 @@ func extractCoords(f *zip.File) (sLat, sLng, eLat, eLng float64, err error) {
 
 	switch {
 	case strings.HasSuffix(name, ".gpx"):
-		sLat, sLng, eLat, eLng, err = gpxCoords(reader)
+		sLat, sLng, mLat, mLng, eLat, eLng, err = gpxCoords(reader)
 	case strings.HasSuffix(name, ".fit"):
-		sLat, sLng, eLat, eLng, err = fitCoords(reader)
+		sLat, sLng, mLat, mLng, eLat, eLng, err = fitCoords(reader)
 	}
 	return
 }
@@ -197,7 +200,7 @@ type gpxDoc struct {
 	Trks []gpxTrk `xml:"trk"`
 }
 
-func gpxCoords(r io.Reader) (sLat, sLng, eLat, eLng float64, err error) {
+func gpxCoords(r io.Reader) (sLat, sLng, mLat, mLng, eLat, eLng float64, err error) {
 	var doc gpxDoc
 	if err = xml.NewDecoder(r).Decode(&doc); err != nil {
 		return
@@ -212,11 +215,13 @@ func gpxCoords(r io.Reader) (sLat, sLng, eLat, eLng float64, err error) {
 		return
 	}
 	sLat, sLng = pts[0].Lat, pts[0].Lon
+	mid := pts[len(pts)/2]
+	mLat, mLng = mid.Lat, mid.Lon
 	eLat, eLng = pts[len(pts)-1].Lat, pts[len(pts)-1].Lon
 	return
 }
 
-func fitCoords(r io.Reader) (sLat, sLng, eLat, eLng float64, err error) {
+func fitCoords(r io.Reader) (sLat, sLng, mLat, mLng, eLat, eLng float64, err error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return
@@ -229,18 +234,22 @@ func fitCoords(r io.Reader) (sLat, sLng, eLat, eLng float64, err error) {
 	if err != nil {
 		return
 	}
-	first := true
+
+	// Collect all valid GPS records so we can find start, mid, and end.
+	type latLng struct{ lat, lng float64 }
+	var pts []latLng
 	for _, rec := range activity.Records {
 		if rec.PositionLat.Invalid() || rec.PositionLong.Invalid() {
 			continue
 		}
-		lat := rec.PositionLat.Degrees()
-		lng := rec.PositionLong.Degrees()
-		if first {
-			sLat, sLng = lat, lng
-			first = false
-		}
-		eLat, eLng = lat, lng
+		pts = append(pts, latLng{rec.PositionLat.Degrees(), rec.PositionLong.Degrees()})
 	}
+	if len(pts) < 2 {
+		return
+	}
+	sLat, sLng = pts[0].lat, pts[0].lng
+	mid := pts[len(pts)/2]
+	mLat, mLng = mid.lat, mid.lng
+	eLat, eLng = pts[len(pts)-1].lat, pts[len(pts)-1].lng
 	return
 }

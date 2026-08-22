@@ -241,6 +241,8 @@ func FromArchiveActivities(activities []archive.Activity) []RunActivity {
 			AverageHeartrate: a.AverageHeartrate,
 			StartLat:         a.StartLat,
 			StartLng:         a.StartLng,
+			MidLat:           a.MidLat,
+			MidLng:           a.MidLng,
 			EndLat:           a.EndLat,
 			EndLng:           a.EndLng,
 		})
